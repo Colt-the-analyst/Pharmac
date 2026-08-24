@@ -11,7 +11,23 @@ editor: visual
 
 ## Data Description
 
+The pharmaceutical data is a repeated cross sectional data frame showing how medicine was distributed in different regions over different years.
+
+Note that just because medicine was dispensed does not mean that it was taken.
+
 ## Ethics, Privacy and Security
+
+- Ethical considerations:
+
+  - Any comparison of groups being done in this project shouldn't cause have any implications about financial status between said groups. For example, Māori people take less medication than Pākehā because they can't afford them.
+
+  - Given the nature of the data collection, no causal causal conclusions can be drawn. The analysis will only be able to create commentary about the trends and relationships between the variables.
+
+- Privacy considerations:
+
+  - We should not be removing the suppression layer from the count of medication distribution. While there is an oversight in how this data is provided that allows users to do this, and there is code demonstrating that this is possible in this project, the values were randomly adjusted so that for the example instance doesn't have the true count revealed.
+
+  - For all analysis, the suppressed values will be imputed. Currently the method of replacing these with the median of the suppression range.
 
 ## Exploratory Data Analysis
 

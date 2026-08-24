@@ -15,7 +15,8 @@ rm(list = ls())
 
 # load the packages
 pacman::p_load(
-  tidyverse            # Data wrangling + graphics
+  tidyverse,           # Data wrangling + graphics
+  tibble               # Alternative to dataframes with slightly altered rules
 )
 
 # Set the seed
@@ -229,7 +230,7 @@ dispensing_table <- xtabs(
 # ------------------------------------------------------------------------------
 
 
-# Histogram of the most dispersed drugs
+# Bar chart of the most dispersed drugs
 Data_ByChemical_count |>
   slice_max(NumDisps, n = 25) |>
   mutate(Chemical = fct_reorder(Chemical, NumDisps)) |>
@@ -237,7 +238,7 @@ Data_ByChemical_count |>
   geom_col() +
   scale_x_continuous() +
   labs(
-    title = "Histogram of the most dispersed drugs",
+    title = "Bar chart of the most dispersed drugs",
     x = "Number of distributions",
     y = "Chemical",
     colour = NULL
