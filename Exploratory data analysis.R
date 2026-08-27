@@ -16,7 +16,9 @@ rm(list = ls())
 # load the packages
 pacman::p_load(
   tidyverse,           # Data wrangling + graphics
-  tibble               # Alternative to dataframes with slightly altered rules
+  tibble,              # Alternative to dataframes with slightly altered rules
+  janitor,             # Tidy dataframe names
+  scales               # Percentages in graphics
 )
 
 # Set the seed
@@ -25,6 +27,43 @@ set.seed(111)
 # Load the data
 Data_ByChemical <- read.csv("Data/Data_ByChemical.csv") |>
   as_tibble()
+Deprivation <- read.csv("Data/Deprivation index 2023.csv") |>
+  as_tibble() |>
+  clean_names()
+
+# Define deprivation order
+deprivation_order <- c(
+  "1 - Least deprived",
+  "2", "3", "4", "5", "6", "7", "8", "9",
+  "10 - Most deprived",
+  "Not elsewhere included",
+  "Total stated - New Zealand index of socioeconomic deprivation",
+  "Total - New Zealand index of socioeconomic deprivation"
+)
+
+# Approximate geographic order from north to south
+district_order <- c(
+  "Northland",
+  "Waitematā",
+  "Auckland",
+  "Counties Manukau",
+  "Waikato",
+  "Bay of Plenty",
+  "Lakes",
+  "Tairāwhiti",
+  "Taranaki",
+  "Whanganui",
+  "MidCentral",
+  "Hawke's Bay",
+  "Capital, Coast and Hutt Valley",
+  "Wairarapa",
+  "Nelson Marlborough",
+  "West Coast",
+  "Canterbury",
+  "South Canterbury",
+  "Southern",
+  "Area outside health region"
+)
 
 # ------------------------------------------------------------------------------
 # Initial tidying
@@ -186,6 +225,53 @@ Chemical_concentration_region <- Data_ByChemical_clean |>
   ungroup() |>
   arrange(desc(district_share))
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# Deprivation pivot
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+# Change the raw data to wide format
+Deprivation_wide <- Deprivation |>
+  select(area, new_zealand_index_of_socioeconomic_deprivation, obs_value) |>
+  pivot_wider(names_from = area, values_from = obs_value) |>
+  mutate(
+    new_zealand_index_of_socioeconomic_deprivation = factor(
+      new_zealand_index_of_socioeconomic_deprivation,
+      levels = deprivation_order,
+      ordered = TRUE
+    )
+  ) |>
+  arrange(new_zealand_index_of_socioeconomic_deprivation)
+
+# Create a lookup of average deprivations per district
+Deprivation_average <- Deprivation_wide |>
+  mutate(
+    index = as.numeric(
+      str_trim(
+        substr(new_zealand_index_of_socioeconomic_deprivation, 1, 2)
+        )
+      )
+    ) |>
+  filter(!is.na(index)) |>
+  select(-new_zealand_index_of_socioeconomic_deprivation) |>
+  mutate(
+    across(
+      .cols = -index,
+      .fns = ~ .x * index
+      )
+    ) |>
+  summarise(
+    across(
+      everything(),
+      ~ sum(.x)
+    )
+  ) |>
+  mutate(
+    across(
+      .cols = -index,
+      .fns = ~ .x / index
+    )
+  )
+
 # ------------------------------------------------------------------------------
 # Modelling
 # ------------------------------------------------------------------------------
@@ -228,7 +314,6 @@ dispensing_table <- xtabs(
 # ------------------------------------------------------------------------------
 # Graphics
 # ------------------------------------------------------------------------------
-
 
 # Bar chart of the most dispersed drugs
 Data_ByChemical_count |>
@@ -337,4 +422,62 @@ Chemical_concentration_region |>
     title = "Distribution of the largest district dispensing shares",
     x = "Largest district share of dispensings",
     y = "Number of chemicals"
+  )
+
+# Convert deprivation back to long format for graphics
+deprivation_long <- Deprivation_wide |>
+  # Keep only deprivation categories 1–10
+  filter(
+    new_zealand_index_of_socioeconomic_deprivation %in%
+      c(
+        "1 - Least deprived",
+        "2", "3", "4", "5", "6", "7", "8", "9",
+        "10 - Most deprived"
+      )
+  ) |>
+  # Convert the area columns into rows
+  pivot_longer(
+    cols = -new_zealand_index_of_socioeconomic_deprivation,
+    names_to = "area",
+    values_to = "count"
+  ) |>
+  group_by(area) |>
+  mutate(
+    proportion = count / sum(count)
+  ) |>
+  ungroup() |>
+  # remove area instances that are more aggregated than health district
+  filter(
+    !area %in% c(
+      "Total - New Zealand by health region/health district",
+      "Central Region",
+      "Northern Region",
+      "Te Manawa Taki",
+      "Te Waipounamu"
+    )
+  ) |>
+  mutate(area = factor(area, levels = rev(district_order)))
+         
+# Heatmap of deprivation index across districts
+ggplot(
+  deprivation_long,
+  aes(
+    x = new_zealand_index_of_socioeconomic_deprivation,
+    y = area,
+    fill = proportion
+  )
+) +
+  geom_tile(colour = "white") +
+  scale_fill_viridis_c(
+    labels = label_percent(accuracy = 1),
+    name = "Population share"
+  ) +
+  labs(
+    title = "Distribution of socioeconomic deprivation by area",
+    x = "New Zealand Index of Socioeconomic Deprivation",
+    y = NULL
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
   )
