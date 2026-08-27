@@ -30,6 +30,9 @@ Data_ByChemical <- read.csv("Data/Data_ByChemical.csv") |>
 Deprivation <- read.csv("Data/Deprivation index 2023.csv") |>
   as_tibble() |>
   clean_names()
+TG2_data <- read.csv("Data/Data_ByTG2.csv") |>
+  as_tibble() |>
+  clean_names()
 
 # Define deprivation order
 deprivation_order <- c(
@@ -65,13 +68,44 @@ district_order <- c(
   "Area outside health region"
 )
 
+# Create a vector just for dementia medication
+dementia_chemicals <- c(
+  "Donepezil hydrochloride",
+  "Rivastigmine"
+)
+
 # ------------------------------------------------------------------------------
 # Initial tidying
 # ------------------------------------------------------------------------------
 
 # Remove the totals
 Data_ByChemical_clean <- Data_ByChemical |>
-  filter(District != "New Zealand")
+  filter(District != "New Zealand") |>
+  # Rename the districts for merging purposes
+  mutate(
+    District = case_when(
+      District == "Tairawhiti" ~ "Tairāwhiti",
+      District == "Waitemata" ~ "Waitematā",
+      District %in% c("Capital & Coast", "Hutt Valley") ~ "Capital, Coast and Hutt Valley",
+      .default = District
+    ),
+    NumDisps = as.numeric(
+      case_when(
+        NumDisps == "<6" ~ "2.5", 
+        .default = NumDisps)
+    ),
+    NumPpl = as.numeric(
+      case_when(
+        NumPpl == "<6" ~ "2.5", 
+        .default = NumPpl)
+    )
+  ) |>
+  # Summarise the Capital, Coast and Hutt Valley instances
+  group_by(Type, ChemID, Chemical, District, YearDisp, NHIComp) |>
+  summarise(
+    NumDisps = sum(NumDisps),
+    NumPpl = sum(NumPpl)
+  )
 
 # ------------------------------------------------------------------------------
 # Summaries
@@ -79,13 +113,6 @@ Data_ByChemical_clean <- Data_ByChemical |>
 
 # 15 most common medicines by number of distributions
 Common_chem_15 <- Data_ByChemical_clean |>
-  mutate(
-    NumDisps = as.numeric(
-      case_when(
-        NumDisps == "<6" ~ "2.5", 
-        .default = NumDisps)
-      )
-    ) |>
   group_by(Chemical) |>
   summarise(NumDisps = sum(NumDisps)) |>
   ungroup() |>
@@ -167,26 +194,12 @@ Data_ByChemical_suppressed_counts |>
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Data_ByChemical_count <- Data_ByChemical_clean |>
-  # Impute the suppressed values with the median over the range (2.5)
-  mutate(NumDisps = as.numeric(
-    case_when(
-      NumDisps == "<6" ~ "2.5",
-      .default = NumDisps
-    )
-  )) |>
   group_by(Chemical) |>
   summarise(NumDisps = sum(NumDisps)) |>
   ungroup() |>
   arrange(desc(NumDisps))
 
 Data_ByChemical_year_count <- Data_ByChemical_clean |>
-  # Impute the suppressed values with the median over the range (2.5)
-  mutate(NumDisps = as.numeric(
-    case_when(
-      NumDisps == "<6" ~ "2.5",
-      .default = NumDisps
-    )
-  )) |>
   group_by(YearDisp, Chemical) |>
   summarise(NumDisps = sum(NumDisps)) |>
   ungroup() |>
@@ -204,12 +217,6 @@ Data_ByChemical_year_count <- Data_ByChemical_clean |>
 # distribution
 Chemical_concentration_region <- Data_ByChemical_clean |>
   filter(District != "Unknown") |>
-  mutate(
-    NumDisps = as.numeric(case_when(
-      NumDisps == "<6" ~ "2.5",
-      .default = NumDisps
-    )
-  )) |>
   group_by(Chemical, District) |>
   summarise(NumDisps = sum(NumDisps)) |>
   ungroup() |>
@@ -245,31 +252,59 @@ Deprivation_wide <- Deprivation |>
 # Create a lookup of average deprivations per district
 Deprivation_average <- Deprivation_wide |>
   mutate(
-    index = as.numeric(
-      str_trim(
-        substr(new_zealand_index_of_socioeconomic_deprivation, 1, 2)
-        )
+    index = parse_number(
+      as.character(
+        new_zealand_index_of_socioeconomic_deprivation
       )
-    ) |>
-  filter(!is.na(index)) |>
-  select(-new_zealand_index_of_socioeconomic_deprivation) |>
-  mutate(
-    across(
-      .cols = -index,
-      .fns = ~ .x * index
-      )
-    ) |>
-  summarise(
-    across(
-      everything(),
-      ~ sum(.x)
     )
   ) |>
+  filter(index %in% 1:10) |>
+  pivot_longer(
+    cols = -c(
+      new_zealand_index_of_socioeconomic_deprivation,
+      index
+    ),
+    names_to = "District",
+    values_to = "population"
+  ) |>
+  group_by(District) |>
+  summarise(
+    average_deprivation = weighted.mean(
+      index,
+      population,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# Dementia medication
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+dementia_data <- Data_ByChemical_clean |>
+  filter(
+    Chemical %in% dementia_chemicals,
+    District != "Unknown"
+  ) |>
   mutate(
-    across(
-      .cols = -index,
-      .fns = ~ .x / index
+    NumDisps = case_when(
+      NumDisps == "<6" ~ 2.5,
+      TRUE ~ as.numeric(NumDisps)
+    ),
+    NumPpl = case_when(
+      NumPpl == "<6" ~ 2.5,
+      TRUE ~ as.numeric(NumPpl)
     )
+  ) |>
+  group_by(YearDisp, District, Chemical) |>
+  summarise(
+    NumDisps = sum(NumDisps),
+    NumPpl = sum(NumPpl),
+    .groups = "drop"
+  ) |>
+  left_join(
+    Deprivation_average,
+    by = "District"
   )
 
 # ------------------------------------------------------------------------------
@@ -310,6 +345,18 @@ dispensing_table <- xtabs(
 # These results provide strong evidence that dispensing patterns are different
 # between districts. The p-value is much smaller than 0.05, so we reject the
 # null hypothesis that district and chemical dispensing are independent.
+
+# Create a glm for predicting the number of distributions based on year,
+# average deprivation and chemical. Start with Poisson with interactions and no 
+# random effects
+dementia_model_1 <- dementia_data |>
+  glm(
+    NumDisps ~ factor(YearDisp) * average_deprivation + Chemical,
+    family = poisson(link = "log"),
+    data = _
+    )
+
+dementia_model_1 |> summary()
 
 # ------------------------------------------------------------------------------
 # Graphics

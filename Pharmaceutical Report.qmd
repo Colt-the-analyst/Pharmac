@@ -9,28 +9,56 @@ editor: visual
 
 ## Table of Contents
 
-## Data Description
+## Background and Data
 
-The pharmaceutical data is a repeated cross sectional data frame showing how medicine was distributed in different regions over different years.
+[What is dementia and the importance of pharmaceutical treatement]{.underline}
 
-Note that just because medicine was dispensed does not mean that it was taken.
+[Importance of equity across socioeconomic status]{.underline}
+
+[Pharmaceutical collection background]{.underline}
+
+[Note that dispensing doesn't immediately imply that the medication was taken]{.underline}
+
+[Association of dispensing between deprivation and time]{.underline}
+
+[Background on the NZDep2023 population counts by deprivation decile and health disrtict, and the attributes included + supression rules and unknown districts]{.underline}
+
+[The pharmaceutical data is a repeated cross sectional data frame showing how medicine was distributed in different regions over different years.]{.underline}
+
+[Note that just because medicine was dispensed does not mean that it was taken.]{.underline}
+
+[Additional district level variables to look into:\
+Income, age, employment, education, racial profile (Probably not), family dependencies.]{.underline}
 
 ## Ethics, Privacy and Security
 
-- Ethical considerations:
+- [Ethical considerations:]{.underline}
 
-  - Any comparison of groups being done in this project shouldn't cause have any implications about financial status between said groups. For example, Māori people take less medication than Pākehā because they can't afford them.
+  - [Any comparison of groups being done in this project shouldn't cause have any implications about financial status between said groups. For example, Māori people take less medication than Pākehā because they can't afford them.]{.underline}
 
-  - Given the nature of the data collection, no causal causal conclusions can be drawn. The analysis will only be able to create commentary about the trends and relationships between the variables.
+  - [Given the nature of the data collection, no causal causal conclusions can be drawn. The analysis will only be able to create commentary about the trends and relationships between the variables.]{.underline}
 
-- Privacy considerations:
+- [Privacy considerations:]{.underline}
 
-  - We should not be removing the suppression layer from the count of medication distribution. While there is an oversight in how this data is provided that allows users to do this, and there is code demonstrating that this is possible in this project, the values were randomly adjusted so that for the example instance doesn't have the true count revealed.
+  - [We should not be removing the suppression layer from the count of medication distribution. While there is an oversight in how this data is provided that allows users to do this, and there is code demonstrating that this is possible in this project, the values were randomly adjusted so that for the example instance doesn't have the true count revealed.]{.underline}
 
-  - For all analysis, the suppressed values will be imputed. Currently the method of replacing these with the median of the suppression range.
+  - [For all analysis, the suppressed values will be imputed. Currently the method of replacing these with the median of the suppression range.]{.underline}
 
 ## Exploratory Data Analysis
 
 ## Detailed Analysis Results
+
+[Potential models:\
+Count data suggests either Poisson model, or negative binomial if overdispersion needs to be accounted for (Create both and compare the diagnostics of the two)]{.underline}
+
+[Inclusion of interactions. Why they were/weren't required]{.underline}
+
+[Include confidence intervals for the different coefficients]{.underline}
+
+[Limitations:]{.underline}
+
+[Only 2023 census returns are informing the deprivation profiles for the health districts, whereas the pharmaceutical dispensings are annually temporal]{.underline}
+
+[All data is summarized to the district level, so we can only look at trends in a region as opposed to any individual level information]{.underline}
 
 ## Conclusions and Recommendations
