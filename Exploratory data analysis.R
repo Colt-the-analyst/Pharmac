@@ -18,7 +18,7 @@ pacman::p_load(
   tidyverse,           # Data wrangling + graphics
   tibble,              # Alternative to dataframes with slightly altered rules
   janitor,             # Tidy dataframe names
-  scales,              # Percentages in graphics
+  scales,              # Graphics formatting
   MASS,                # Negative binomial models
   glmmTMB              # Negative binomial mixed models
 )
@@ -32,9 +32,10 @@ Data_ByChemical <- read.csv("Data/Data_ByChemical.csv") |>
 Deprivation <- read.csv("Data/Deprivation index 2023.csv") |>
   as_tibble() |>
   clean_names()
-TG2_data <- read.csv("Data/Data_ByTG2.csv") |>
+Retired_population <- read.csv("Data/Retired population annual estimates.csv") |>
   as_tibble() |>
   clean_names()
+
 
 # Define deprivation order
 deprivation_order <- c(
@@ -308,6 +309,75 @@ dementia_data <- Data_ByChemical_clean |>
   left_join(
     Deprivation_average,
     by = "District"
+  )
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# Population counts
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+# Check the categories
+Retired_population |>
+  distinct(
+    age_popes_sub_002,
+    age
+  ) |>
+  arrange(age_popes_sub_002)
+
+# Check the years and areas
+Retired_population |>
+  summarise(
+    first_year = min(year_at_30_june),
+    last_year = max(year_at_30_june),
+    number_of_areas = n_distinct(area)
+  )
+
+(Retired_population |>
+  distinct(area) |>
+  arrange(area))
+
+# Tidy the data
+Retired_population_clean <- Retired_population |>
+  filter(
+    age != "65 years and over",
+    area != "Area outside health district"
+    ) |>
+  mutate(
+    YearDisp = year_at_30_june,
+    age_group = age,
+    age_lower = parse_number(age),
+    population = obs_value,
+    District = area
+  ) |>
+  select(YearDisp, YearDisp, age_group, age_lower, District, population)
+
+# Find the district populations for people aged 65 or over
+population_65_plus <- Retired_population_clean |>
+  group_by(
+    YearDisp,
+    District
+  ) |>
+  summarise(
+    population_65_plus = sum(
+      population
+    )
+  ) |>
+  ungroup()
+
+# Combine population and dispensing data
+dementia_population <- dementia_data |>
+  left_join(
+    population_65_plus,
+    by = c(
+      "YearDisp",
+      "District"
+    )
+  ) |>
+  mutate(
+    dispensings_per_1000_65plus =
+      NumDisps / population_65_plus * 1000,
+    
+    people_per_1000_65plus =
+      NumPpl / population_65_plus * 1000
   )
 
 # ------------------------------------------------------------------------------
@@ -686,4 +756,92 @@ ggplot(
   theme(
     panel.grid = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# Population size against dispensing count
+ggplot(
+  dementia_population,
+  aes(
+    x = population_65_plus,
+    y = NumDisps,
+    shape = factor(YearDisp),
+    colour = factor(YearDisp)
+  )
+) +
+  geom_point() +
+  geom_smooth(
+    aes(group = 1),
+    method = "lm",
+    se = TRUE,
+    colour = "black",
+    fill = "grey",
+    linetype = "dashed"
+  ) +
+  facet_wrap(
+    ~ Chemical,
+    scales = "free_y"
+  ) +
+  scale_x_continuous(
+    labels = label_comma()
+  ) +
+  scale_y_continuous(
+    labels = label_comma()
+  ) +
+  labs(
+    title = "Dementia-medication dispensing and the population aged 65+",
+    x = "District population aged 65 and older",
+    y = "Number of dispensings",
+    shape = "Year",
+    colour = "Year"
+  )
+
+# 2024 Dispensing rates by district
+dementia_population |>
+  filter(YearDisp == 2024) |>
+  ggplot(
+    aes(
+      x = dispensings_per_1000_65plus,
+      y = factor(
+        District,
+        levels = rev(district_order)
+      )
+    )
+  ) +
+  geom_col(
+    fill = "grey"
+  ) +
+  facet_wrap(
+    ~ Chemical,
+    scales = "free_x"
+  ) +
+  labs(
+    title = "Dementia-medication dispensing rates by district in 2024",
+    x = "Dispensings per 1,000 people aged 65+",
+    y = NULL
+  )
+
+# Scatterplot showing dispensing rate by average deprivation for each year and
+# drug
+ggplot(
+  dementia_population,
+  aes(
+    x = average_deprivation,
+    y = dispensings_per_1000_65plus
+  )
+) +
+  geom_point() +
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    colour = "red",
+    fill = "grey"
+  ) +
+  facet_grid(
+    Chemical ~ YearDisp,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "Deprivation and dementia medication dispensing rates",
+    x = "Average deprivation",
+    y = "Dispensings per 1,000 people aged 65+"
   )
