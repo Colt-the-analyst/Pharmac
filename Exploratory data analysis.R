@@ -18,7 +18,9 @@ pacman::p_load(
   tidyverse,           # Data wrangling + graphics
   tibble,              # Alternative to dataframes with slightly altered rules
   janitor,             # Tidy dataframe names
-  scales               # Percentages in graphics
+  scales,              # Percentages in graphics
+  MASS,                # Negative binomial models
+  glmmTMB              # Negative binomial mixed models
 )
 
 # Set the seed
@@ -91,12 +93,12 @@ Data_ByChemical_clean <- Data_ByChemical |>
     ),
     NumDisps = as.numeric(
       case_when(
-        NumDisps == "<6" ~ "2.5", 
+        NumDisps == "<6" ~ "3", 
         .default = NumDisps)
     ),
     NumPpl = as.numeric(
       case_when(
-        NumPpl == "<6" ~ "2.5", 
+        NumPpl == "<6" ~ "3", 
         .default = NumPpl)
     )
   ) |>
@@ -120,74 +122,75 @@ Common_chem_15 <- Data_ByChemical_clean |>
   pull(Chemical)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Suppression
+# Suppression - THIS SECTION NO LONGER WORKS DUE TO THE IMPUTATION OCCURING
+# EARLIER IN THE PROCESS
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-# Check that the data is sufficiently suppressed
-Data_ByChemical_suppressed_counts <- Data_ByChemical |> 
-  mutate(
-    suppressed_disp = NumDisps == "<6",
-    suppressed_people = NumPpl == "<6"
-    ) |>
-  group_by(YearDisp, Chemical, Type) |>
-  summarise(
-    suppressed_people_count = sum(suppressed_people),
-    suppressed_disp_count = sum(suppressed_disp)
-    ) |>
-  ungroup()
-
-Data_ByChemical_suppression_problems <- Data_ByChemical_suppressed_counts |>
-  filter(suppressed_disp_count == 1) |>
-  arrange(suppressed_disp_count)
-
-# An example of YearDisp, Chemical and Type combination with 
-# insufficient suppression
-Example_problem_values <- Data_ByChemical_suppression_problems |>
-  head(1) |>
-  select(YearDisp, Chemical, Type)
-
-Data_ByChemical_suppression_problems_xmpl <- Data_ByChemical |>
-  filter(
-    YearDisp == pull(Example_problem_values, YearDisp),
-    Chemical == pull(Example_problem_values, Chemical),
-    Type == pull(Example_problem_values, Type)
-  )
-
-# South Canterbury has the NumDisps attribute supressed with the value of "<6"
-# but the true value can be easily found with the following procedure
-Data_ByChemical_suppression_problems_xmpl |>
-  filter(District != "South Canterbury") |>
-  mutate(
-    NumDisps = as.numeric(NumDisps) + rbinom(n = n(), size = 1, prob = 0.5), # Add randomness so to not break any privacy rules
-    Is_total = District == "New Zealand"
-    ) |>
-  group_by(Is_total) |>
-  summarise(NumDisps = sum(NumDisps)) |>
-  ungroup() |>
-  pivot_wider(names_from = Is_total, values_from = NumDisps) |>
-  mutate(
-    # Account for the additions in NumDisps for each of the districts
-    `TRUE` = `TRUE` + (nrow(Data_ByChemical_suppression_problems_xmpl) - 1) / 2, 
-    Unsupressed_value = `TRUE` - `FALSE`
-    ) |>
-  pull(Unsupressed_value)
-
-# Find the proportion of YearDisp, Chemical and Type combinations that have
-# insufficient suppressions
-Data_ByChemical_suppressed_counts |>
-  mutate(one_suppressed = suppressed_people_count == 1 | suppressed_disp_count == 1) |>
-  count(one_suppressed) |>
-  pivot_wider(names_from = one_suppressed, values_from = n) |>
-  mutate(proportion = `TRUE` / (`FALSE` + `TRUE`)) |>
-  pull(proportion)
-# [1] 0.1061375
-
-# This means that roughly 11% of the combinations of all YearDisp, Chemical and
-# Type have suppressions that are insufficient.
-
-# The reason that the having instances of counts less than 6 is problematic is 
-# that small values in these columns increase the risk of identifying someone
-# from a rare medicine as well as district and year.
+# # Check that the data is sufficiently suppressed
+# Data_ByChemical_suppressed_counts <- Data_ByChemical |> 
+#   mutate(
+#     suppressed_disp = NumDisps == "<6",
+#     suppressed_people = NumPpl == "<6"
+#     ) |>
+#   group_by(YearDisp, Chemical, Type) |>
+#   summarise(
+#     suppressed_people_count = sum(suppressed_people),
+#     suppressed_disp_count = sum(suppressed_disp)
+#     ) |>
+#   ungroup()
+# 
+# Data_ByChemical_suppression_problems <- Data_ByChemical_suppressed_counts |>
+#   filter(suppressed_disp_count == 1) |>
+#   arrange(suppressed_disp_count)
+# 
+# # An example of YearDisp, Chemical and Type combination with 
+# # insufficient suppression
+# Example_problem_values <- Data_ByChemical_suppression_problems |>
+#   head(1) |>
+#   dplyr::select(YearDisp, Chemical, Type)
+# 
+# Data_ByChemical_suppression_problems_xmpl <- Data_ByChemical |>
+#   filter(
+#     YearDisp == pull(Example_problem_values, YearDisp),
+#     Chemical == pull(Example_problem_values, Chemical),
+#     Type == pull(Example_problem_values, Type)
+#   )
+# 
+# # South Canterbury has the NumDisps attribute supressed with the value of "<6"
+# # but the true value can be easily found with the following procedure
+# Data_ByChemical_suppression_problems_xmpl |>
+#   filter(District != "South Canterbury") |>
+#   mutate(
+#     NumDisps = as.numeric(NumDisps) + rbinom(n = n(), size = 1, prob = 0.5), # Add randomness so to not break any privacy rules
+#     Is_total = District == "New Zealand"
+#     ) |>
+#   group_by(Is_total) |>
+#   summarise(NumDisps = sum(NumDisps)) |>
+#   ungroup() |>
+#   pivot_wider(names_from = Is_total, values_from = NumDisps) |>
+#   mutate(
+#     # Account for the additions in NumDisps for each of the districts
+#     `TRUE` = `TRUE` + (nrow(Data_ByChemical_suppression_problems_xmpl) - 1) / 2, 
+#     Unsupressed_value = `TRUE` - `FALSE`
+#     ) |>
+#   pull(Unsupressed_value)
+# 
+# # Find the proportion of YearDisp, Chemical and Type combinations that have
+# # insufficient suppressions
+# Data_ByChemical_suppressed_counts |>
+#   mutate(one_suppressed = suppressed_people_count == 1 | suppressed_disp_count == 1) |>
+#   count(one_suppressed) |>
+#   pivot_wider(names_from = one_suppressed, values_from = n) |>
+#   mutate(proportion = `TRUE` / (`FALSE` + `TRUE`)) |>
+#   pull(proportion)
+# # [1] 0.1061375
+# 
+# # This means that roughly 11% of the combinations of all YearDisp, Chemical and
+# # Type have suppressions that are insufficient.
+# 
+# # The reason that the having instances of counts less than 6 is problematic is 
+# # that small values in these columns increase the risk of identifying someone
+# # from a rare medicine as well as district and year.
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Chemical dispension count
@@ -238,7 +241,7 @@ Chemical_concentration_region <- Data_ByChemical_clean |>
 
 # Change the raw data to wide format
 Deprivation_wide <- Deprivation |>
-  select(area, new_zealand_index_of_socioeconomic_deprivation, obs_value) |>
+  dplyr::select(area, new_zealand_index_of_socioeconomic_deprivation, obs_value) |>
   pivot_wider(names_from = area, values_from = obs_value) |>
   mutate(
     new_zealand_index_of_socioeconomic_deprivation = factor(
@@ -288,11 +291,11 @@ dementia_data <- Data_ByChemical_clean |>
   ) |>
   mutate(
     NumDisps = case_when(
-      NumDisps == "<6" ~ 2.5,
+      NumDisps == "<6" ~ 3,
       TRUE ~ as.numeric(NumDisps)
     ),
     NumPpl = case_when(
-      NumPpl == "<6" ~ 2.5,
+      NumPpl == "<6" ~ 3,
       TRUE ~ as.numeric(NumPpl)
     )
   ) |>
@@ -320,7 +323,7 @@ chi_data <- Data_ByChemical_clean |>
   ) |>
   mutate(
     NumDisps = case_when(
-      NumDisps == "<6" ~ 2.5,
+      NumDisps == "<6" ~ 3,
       TRUE ~ as.numeric(NumDisps)
     )
   ) |>
@@ -346,17 +349,173 @@ dispensing_table <- xtabs(
 # between districts. The p-value is much smaller than 0.05, so we reject the
 # null hypothesis that district and chemical dispensing are independent.
 
-# Create a glm for predicting the number of distributions based on year,
-# average deprivation and chemical. Start with Poisson with interactions and no 
-# random effects
-dementia_model_1 <- dementia_data |>
+dementia_model_data <- dementia_data |>
+  mutate(
+    # Keep year categorical because the trend may not be linear
+    Year = factor(YearDisp),
+    # Centre deprivation so model intercepts are easier to interpret
+    deprivation_c =
+      average_deprivation - mean(average_deprivation),
+    Chemical = factor(Chemical),
+    District = factor(District)
+  )
+
+# Model 0: differences between chemicals only
+poisson_0 <- dementia_model_data |>
   glm(
-    NumDisps ~ factor(YearDisp) * average_deprivation + Chemical,
+    NumDisps ~ Chemical,
     family = poisson(link = "log"),
     data = _
     )
 
-dementia_model_1 |> summary()
+# Model 1: additive effects
+poisson_1 <- dementia_model_data |>
+  glm(
+    NumDisps ~ Year + deprivation_c + Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Model 2: deprivation effect can differ by year
+poisson_2 <- dementia_model_data |>
+  glm(
+    NumDisps ~ Year * deprivation_c + Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Model 3: time patterns can also differ by chemical
+poisson_3 <- dementia_model_data |>
+  glm(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Model 4: all two-way interactions
+poisson_4 <- dementia_model_data |>
+  glm(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Check Poisson overdispersion
+check_poisson_dispersion <- function(model) {
+  pearson_dispersion <- sum(residuals(model, type = "pearson")^2) / df.residual(model)
+  
+  tibble(
+    residual_deviance = deviance(model),
+    residual_df = df.residual(model),
+    deviance_ratio = deviance(model) / df.residual(model),
+    pearson_dispersion = pearson_dispersion
+  )
+}
+
+check_poisson_dispersion(poisson_0)
+check_poisson_dispersion(poisson_1)
+check_poisson_dispersion(poisson_2)
+check_poisson_dispersion(poisson_3)
+check_poisson_dispersion(poisson_4)
+# a Pearson dispersion of roughly 1 would indicate that the Poisson assumption
+# of the mean equalling the variance is appropriate. All of these models have a
+# Pearson dispersion well above 1000, indicating that there is substantial
+# overdispersion for a Poisson model
+
+# Additive negative binomial model
+nb_1 <- dementia_model_data |>
+  glm.nb(NumDisps ~ Year + deprivation_c + Chemical, data = _)
+
+# Year-by-deprivation interaction
+nb_2 <- dementia_model_data |>
+  glm.nb(NumDisps ~ Year * deprivation_c + Chemical, data = _)
+
+# Year trends can differ by chemical
+nb_3 <- dementia_model_data |>
+  glm.nb(NumDisps ~
+           Year * deprivation_c +
+           Year * Chemical, data = _)
+
+# All substantively useful two-way interactions
+nb_4 <- dementia_model_data |>
+  glm.nb(NumDisps ~
+           Year * deprivation_c +
+           Year * Chemical +
+           deprivation_c * Chemical,
+         data = _)
+
+# Poisson mixed model
+mixed_poisson <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Chemical +
+      (1 | District),
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Negative binomial mixed model
+mixed_nb_1 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+# Allow chemical-specific time patterns
+mixed_nb_2 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+# Include all relevant two-way interactions
+mixed_nb_3 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+BIC(
+  poisson_0,
+  poisson_1,
+  poisson_2,
+  poisson_3,
+  poisson_4,
+  nb_1,
+  nb_2,
+  nb_3,
+  nb_4,
+  mixed_poisson,
+  mixed_nb_1,
+  mixed_nb_2,
+  mixed_nb_3
+) |>
+  as.data.frame() |>
+  rownames_to_column("model") |>
+  as_tibble() |>
+  arrange(BIC)
+
+# The mixed negative binomial models have the lowest BIC, but many of the
+# coefficients are not significantly different from 0.
 
 # ------------------------------------------------------------------------------
 # Graphics
