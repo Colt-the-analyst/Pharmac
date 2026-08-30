@@ -210,8 +210,32 @@ Data_ByChemical_year_count <- Data_ByChemical_clean |>
   arrange(YearDisp, desc(NumDisps)) |>
   group_by(YearDisp) |>
   mutate(Rank = row_number()) |>
-  slice_min(Rank, n = 10) |>
+  slice_min(Rank, n = 15) |>
   ungroup()
+
+# Find the ranks of the drugs of interest
+Data_ByChemical_clean |>
+  group_by(YearDisp, Chemical) |>
+  summarise(NumDisps = sum(NumDisps)) |>
+  ungroup() |>
+  arrange(YearDisp, desc(NumDisps)) |>
+  group_by(YearDisp) |>
+  mutate(Rank = row_number()) |>
+  filter(Chemical %in% dementia_chemicals) |>
+  filter(Chemical %in% dementia_chemicals) |>
+  pivot_wider(
+    names_from = Chemical,
+    values_from = c(NumDisps, Rank),
+    names_glue = "{Chemical}_{.value}"
+  ) |>
+  rename(
+    Year = YearDisp,
+    `Donepezil hydrochloride distribution count` = `Donepezil hydrochloride_NumDisps`,
+    `Rivastigmine distribution count` = `Rivastigmine_NumDisps`,
+    `Donepezil hydrochloride distribution rank` = `Donepezil hydrochloride_Rank`,
+    `Rivastigmine distribution rank` = `Rivastigmine_Rank`
+  ) |>
+  pander()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Concentrated Medication by District
@@ -348,7 +372,7 @@ Retired_population_clean <- Retired_population |>
     population = obs_value,
     District = area
   ) |>
-  select(YearDisp, YearDisp, age_group, age_lower, District, population)
+  dplyr::select(YearDisp, YearDisp, age_group, age_lower, District, population)
 
 # Find the district populations for people aged 65 or over
 population_65_plus <- Retired_population_clean |>
@@ -592,12 +616,31 @@ BIC(
 # ------------------------------------------------------------------------------
 
 # Bar chart of the most dispersed drugs
-Data_ByChemical_count |>
-  slice_max(NumDisps, n = 25) |>
+Data_ByChemical_count_ranked <- Data_ByChemical_count |>
+  mutate(rank = row_number()) |>
+  filter(rank <= 15 | Chemical %in% dementia_chemicals)
+
+Data_ByChemical_count_ranked |>
   mutate(Chemical = fct_reorder(Chemical, NumDisps)) |>
   ggplot(aes(x = NumDisps, y = Chemical)) +
   geom_col() +
-  scale_x_continuous() +
+  geom_hline(
+    yintercept = 2.5,
+    colour = "red",
+    linetype = "dotted",
+    linewidth = 1
+  ) +
+  geom_text(
+    aes(label = paste0("Rank ", rank)),
+    hjust = -0.15,
+    size = 3.5
+  ) +
+  scale_x_continuous(
+    labels = label_comma()
+  ) +
+  expand_limits(
+    x = max(Data_ByChemical_count_ranked$NumDisps) * 1.15
+  ) +
   labs(
     title = "Bar chart of the most dispersed drugs",
     x = "Number of distributions",
@@ -619,7 +662,7 @@ Data_ByChemical_year_count |>
   ) +
   geom_point(size = 3) +
   scale_y_reverse(
-    breaks = 1:10
+    breaks = 1:15
   ) +
   labs(
     title = "Rankings of the most frequently dispensed medications over time",
@@ -635,7 +678,7 @@ chi_data |>
       x = Chemical, y = District, fill = log1p(NumDisps)
     )
   ) +
-  geom_tile() +
+  geom_tile(colour = "white") +
   scale_fill_viridis_c() +
   labs(title = "Dispensing patterns across dristricts") +
   theme(
@@ -735,8 +778,8 @@ deprivation_long <- Deprivation_wide |>
   mutate(area = factor(area, levels = rev(district_order)))
          
 # Heatmap of deprivation index across districts
-ggplot(
-  deprivation_long,
+deprivation_long |> 
+  ggplot(
   aes(
     x = new_zealand_index_of_socioeconomic_deprivation,
     y = area,
@@ -759,15 +802,13 @@ ggplot(
   )
 
 # Population size against dispensing count
-ggplot(
-  dementia_population,
-  aes(
+dementia_population |>
+  ggplot(aes(
     x = population_65_plus,
     y = NumDisps,
     shape = factor(YearDisp),
     colour = factor(YearDisp)
-  )
-) +
+  )) +
   geom_point() +
   geom_smooth(
     aes(group = 1),
@@ -822,8 +863,8 @@ dementia_population |>
 
 # Scatterplot showing dispensing rate by average deprivation for each year and
 # drug
-ggplot(
-  dementia_population,
+dementia_population |>
+  ggplot(
   aes(
     x = average_deprivation,
     y = dispensings_per_1000_65plus
