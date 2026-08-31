@@ -29,6 +29,9 @@ pacman::p_load(
 # Set the seed
 set.seed(111)
 
+# Suppress warnings
+options(warn = -1)
+
 # Load the data
 Data_ByChemical <- read.csv("Data/Data_ByChemical.csv") |>
   as_tibble()
@@ -217,30 +220,58 @@ Deprivation_average <- Deprivation_wide |>
 # Dementia medication
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+# Create district/year population totals for people aged 65+
+Population_65_plus <- Retired_population |>
+  filter(
+    sex == "Total people, sex",
+    age %in% c(
+      "65-69 years",
+      "70-74 years",
+      "75-79 years",
+      "80-84 years",
+      "85-89 years",
+      "90 years and over"
+    )
+  ) |>
+  mutate(
+    # Make geographic names match the pharmaceutical data
+    District = case_when(
+      area == "Tairawhiti" ~ "Tairāwhiti",
+      area == "Waitemata" ~ "Waitematā",
+      area %in% c("Capital & Coast", "Hutt Valley") ~
+        "Capital, Coast and Hutt Valley",
+      area == "Area outside health district" ~
+        "Area outside health region",
+      .default = area
+    )
+  ) |>
+  group_by(
+    YearDisp = year_at_30_june,
+    District
+  ) |>
+  summarise(
+    population_65_plus = sum(obs_value)
+  ) |>
+  ungroup()
+
 dementia_data <- Data_ByChemical_clean |>
   filter(
     Chemical %in% dementia_chemicals,
     District != "Unknown"
   ) |>
-  mutate(
-    NumDisps = case_when(
-      NumDisps == "<6" ~ 3,
-      TRUE ~ as.numeric(NumDisps)
-    ),
-    NumPpl = case_when(
-      NumPpl == "<6" ~ 3,
-      TRUE ~ as.numeric(NumPpl)
-    )
-  ) |>
   group_by(YearDisp, District, Chemical) |>
   summarise(
     NumDisps = sum(NumDisps),
-    NumPpl = sum(NumPpl),
-    .groups = "drop"
+    NumPpl = sum(NumPpl)
   ) |>
+  ungroup() |>
   left_join(
     Deprivation_average,
     by = "District"
+  ) |>
+  left_join(
+    Population_65_plus,
+    by = c("YearDisp", "District")
   )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -277,13 +308,6 @@ population_65_plus <- Retired_population_clean |>
 
 # Combine population and dispensing data
 dementia_population <- dementia_data |>
-  left_join(
-    population_65_plus,
-    by = c(
-      "YearDisp",
-      "District"
-    )
-  ) |>
   mutate(
     dispensings_per_1000_65plus =
       NumDisps / population_65_plus * 1000,
@@ -480,7 +504,7 @@ Chemical_concentration_region |>
 
 The median value is 0.1695, meaning that a typical medication will have roughly 17% of their medication go towards the district that leads in distribution. The lowest observed proportion is `{r} Chemical_concentration_region |> pull(district_share) |> min()` meaning that no medication is equally distributed across all districts. There's a small group of medications that have a proportion value of 1, meaning that they are only distributed in a single district. Note that this metric doesn't speak to the number of distributions for these medications, and are likely very niche with an estimated mean of `{r} Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> mean() |> round(2)` and max of `{r} Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> max()` . The medications with these lower distributions are either very niche, available from retailers outside of pharmacies or not recorded in some districts.
 
-Dementia as a risk is strongly associated with old age. This makes the districts with a higher count of aged population more relevant to this analysis than total population size in the health district. The graphs below show a positive relationship between aged population count and distributions of the two key dementia medications. This relationship is stronger for Donepezil Hydrochloride, but both show that there are some observations above the line of best fit on the higher end of the district aged population. These observations belong to the `{r}``dementia_population |> group_by(Chemical) |>` `slice_max(order_by = NumDisps, n = 5) |>` `pull(District) |> unique()` district, and as the years increase it can be seen diverging further away from the line of best fit. Overall, this high correlation means that the older population size accounts for a large amount of the inter-district variation.
+Dementia as a risk is strongly associated with old age. This makes the districts with a higher count of aged population more relevant to this analysis than total population size in the health district. The graphs below show a positive relationship between aged population count and distributions of the two key dementia medications. This relationship is stronger for Donepezil Hydrochloride, but both show that there are some observations above the line of best fit on the higher end of the district aged population. These observations belong to the ``` {r}``dementia_population |> group_by(Chemical) |> ``` `slice_max(order_by = NumDisps, n = 5) |>` `pull(District) |> unique()` district, and as the years increase it can be seen diverging further away from the line of best fit. Overall, this high correlation means that the older population size accounts for a large amount of the inter-district variation.
 
 ```{r EDA5}
 #| echo: false
@@ -616,19 +640,275 @@ deprivation_long |>
   )
 ```
 
+The plots below show how the average distribution rate per aged person changes for the two dementia medications over the deprivation index. For donepezil hydrochloride, the trend in the relationship between the distribution rate and the deprivation index increases as time increases, peaking at 2022, followed by a decreasing trend in subsequent years. Alternatively, these trends have consistently steeper downward trends as the years increase. This is a strong argument to test interaction effects between year and deprivation index when predicting the number of medication distributions.
+
+```{r EDA8}
+#| echo: false
+
+# Scatterplot showing dispensing rate by average deprivation for each year and
+# drug
+dementia_population |>
+  ggplot(
+    aes(
+      x = average_deprivation,
+      y = dispensings_per_1000_65plus
+    )
+  ) +
+  geom_point() +
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    colour = "red",
+    fill = "grey"
+  ) +
+  facet_grid(
+    Chemical ~ YearDisp,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "Deprivation and dementia medication dispensing rates",
+    x = "Average deprivation",
+    y = "Dispensings per 1,000 people aged 65+"
+  )
+```
+
+These results remain exploratory. There are only about 19 districts per year, the same districts are observed repeatedly, and district deprivation changes little over the study period. Confidence intervals are wide, especially for rivastigmine, and the slopes may be sensitive to influential districts such as Tairāwhiti, Canterbury or Taranaki.
+
 ## Detailed Analysis Results
 
-[Potential models:\
-Count data suggests either Poisson model, or negative binomial if overdispersion needs to be accounted for (Create both and compare the diagnostics of the two)]{.underline}
+A variety of parametric models are tested to find which most appropriately fit the data. Creating the appropriate model allows for inference on the relationships between the different regressors. The table compares models that predict the number of dementia medication distributions. The Poisson models assume that the variance is equal to the mean, while the negative binomial models allow for additional variation. The mixed models also include a random intercept for district, which accounts for repeated observations and differences between districts that are not explained by the other variables. The models become more complex as interactions are added, allowing the relationships with year and deprivation to differ between medications. The final model also uses the population aged 65 years and over as an offset, allowing it to model dispensing rates rather than only raw counts.
 
-[Inclusion of interactions. Why they were/weren't required]{.underline}
+```{r DA1}
+#| echo: false
 
-[Include confidence intervals for the different coefficients]{.underline}
+dementia_model_data <- dementia_data |>
+  mutate(
+    Year = YearDisp,
+    # Centre deprivation so model intercepts are easier to interpret
+    deprivation_c =
+      average_deprivation - mean(average_deprivation),
+    Chemical = factor(Chemical),
+    District = factor(District),
+    log_population_65_plus = log(.data$population_65_plus)
+  )
 
-[Limitations:]{.underline}
+# Model 0: differences between chemicals only
+poisson_0 <- dementia_model_data |>
+  glm(
+    NumDisps ~ Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
 
-[Only 2023 census returns are informing the deprivation profiles for the health districts, whereas the pharmaceutical dispensings are annually temporal]{.underline}
+# Model 1: additive effects
+poisson_1 <- dementia_model_data |>
+  glm(
+    NumDisps ~ Year + deprivation_c + Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
 
-[All data is summarized to the district level, so we can only look at trends in a region as opposed to any individual level information]{.underline}
+# Model 2: deprivation effect can differ by year
+poisson_2 <- dementia_model_data |>
+  glm(
+    NumDisps ~ Year * deprivation_c + Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Model 3: time patterns can also differ by chemical
+poisson_3 <- dementia_model_data |>
+  glm(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Model 4: all two-way interactions
+poisson_4 <- dementia_model_data |>
+  glm(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical,
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Check Poisson overdispersion
+check_poisson_dispersion <- function(model) {
+  pearson_dispersion <- sum(residuals(model, type = "pearson")^2) / df.residual(model)
+  
+  tibble(
+    residual_deviance = deviance(model),
+    residual_df = df.residual(model),
+    deviance_ratio = deviance(model) / df.residual(model),
+    pearson_dispersion = pearson_dispersion
+  )
+}
+
+check_poisson_dispersion(poisson_0)
+check_poisson_dispersion(poisson_1)
+check_poisson_dispersion(poisson_2)
+check_poisson_dispersion(poisson_3)
+check_poisson_dispersion(poisson_4)
+# a Pearson dispersion of roughly 1 would indicate that the Poisson assumption
+# of the mean equalling the variance is appropriate. All of these models have a
+# Pearson dispersion well above 1000, indicating that there is substantial
+# overdispersion for a Poisson model
+
+# Additive negative binomial model
+nb_1 <- dementia_model_data |>
+  glm.nb(NumDisps ~ Year + deprivation_c + Chemical, data = _)
+
+# Year-by-deprivation interaction
+nb_2 <- dementia_model_data |>
+  glm.nb(NumDisps ~ Year * deprivation_c + Chemical, data = _)
+
+# Year trends can differ by chemical
+nb_3 <- dementia_model_data |>
+  glm.nb(NumDisps ~
+           Year * deprivation_c +
+           Year * Chemical, data = _)
+
+# All substantively useful two-way interactions
+nb_4 <- dementia_model_data |>
+  glm.nb(NumDisps ~
+           Year * deprivation_c +
+           Year * Chemical +
+           deprivation_c * Chemical,
+         data = _)
+
+# Poisson mixed model
+mixed_poisson <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Chemical +
+      (1 | District),
+    family = poisson(link = "log"),
+    data = _
+  )
+
+# Negative binomial mixed model
+mixed_nb_1 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+# Allow chemical-specific time patterns
+mixed_nb_2 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+# Include all relevant two-way interactions
+mixed_nb_3 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+# Include aged population as an  offset
+mixed_nb_4 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical +
+      offset(log_population_65_plus) +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
+model_explanations <- tribble(
+  ~model,           ~explanation,
+  "poisson_0",      "Poisson model containing differences between the two medications only.",
+  "poisson_1",      "Adds year and average deprivation as separate effects.",
+  "poisson_2",      "Allows the relationship between deprivation and dispensing to change over time.",
+  "poisson_3",      "Also allows the time trend to differ between medications.",
+  "poisson_4",      "Also allows the deprivation relationship to differ between medications.",
+  "nb_1",           "Negative binomial version of poisson_1, allowing for overdispersion.",
+  "nb_2",           "Negative binomial version of poisson_2, allowing for overdispersion.",
+  "nb_3",           "Negative binomial version of poisson_3, allowing for overdispersion.",
+  "nb_4",           "Negative binomial version of poisson_4, allowing for overdispersion.",
+  "mixed_poisson",  "Poisson model that also accounts for differences between districts.",
+  "mixed_nb_1",     "Negative binomial mixed model with a year-by-deprivation interaction.",
+  "mixed_nb_2",     "Also allows the time trend to differ between medications.",
+  "mixed_nb_3",     "Also allows the deprivation relationship to differ between medications.",
+  "mixed_nb_4",     "Adds the population aged 65 years and over as an offset, producing population-adjusted dispensing rates."
+)
+
+BIC(
+  poisson_0,
+  poisson_1,
+  poisson_2,
+  poisson_3,
+  poisson_4,
+  nb_1,
+  nb_2,
+  nb_3,
+  nb_4,
+  mixed_poisson,
+  mixed_nb_1,
+  mixed_nb_2,
+  mixed_nb_3,
+  mixed_nb_4
+) |>
+  as.data.frame() |>
+  rownames_to_column("model") |>
+  as_tibble() |>
+  left_join(
+    model_explanations,
+    by = "model"
+  ) |>
+  arrange(BIC) |>
+  relocate(explanation, .after = model) |>
+  pander()
+```
+
+The best fitting model, based on having the lowest BIC, uses the number of distributions as the response. It treats the number of distributions as a negative binomial distributed variable that depends on several district-level regressors. These are year, average deprivation and medication. Interactions between these variables are also included. The log of the population aged 65 years or older is used as an offset, which accounts for differences in the size of the older population across districts. District is included as a random intercept because each district is observed multiple times.
+
+The model suggests that the distribution rates for the two medications changed differently over time. At the average level of deprivation, the coefficient for year is 0.0293 for donepezil hydrochloride. After exponentiating this coefficient, the estimated rate ratio is approximately 1.030. This suggests that the distribution rate for donepezil hydrochloride increased by around 3.0% per year. The year coefficient for rivastigmine also includes the interaction between year and chemical. This gives a coefficient of 0.0293 - 0.0629 = -0.0336. The corresponding rate ratio is approximately 0.967, suggesting that the distribution rate for rivastigmine decreased by around 3.3% per year. This means that the two medications had different patterns over time.
+
+The relationship between deprivation and distribution also differs between the medications. The deprivation coefficient cannot be interpreted directly because year has not been centred. The deprivation effect for a particular year can be found by combining the deprivation coefficient with the interaction between year and deprivation.
+
+For donepezil hydrochloride in 2020, the estimated deprivation coefficient is approximately 0.245. This gives a rate ratio of approximately 1.28. Therefore, a one-unit increase in average district deprivation was associated with an estimated 28% increase in the donepezil hydrochloride distribution rate in 2020, after accounting for the other variables in the model. For rivastigmine, the interaction between deprivation and chemical also needs to be included. This gives an estimated deprivation coefficient of approximately -0.308 in 2020 and a rate ratio of approximately 0.735. Therefore, a one-unit increase in average district deprivation was associated with an estimated 26.5% decrease in the rivastigmine distribution rate. This supports the pattern seen in the exploratory analysis, where the deprivation relationships moved in opposite directions for the two medications.
+
+The interaction between year and deprivation is negative. This suggests that the relationship between deprivation and donepezil hydrochloride distribution became less positive over time. It also means that the negative relationship between deprivation and rivastigmine distribution became stronger over time.
+
+The random intercept for district has a standard deviation of 0.357. Exponentiating this gives approximately 1.43. This means that a district one standard deviation above the average district effect had an expected distribution rate around 43% higher, after accounting for the variables included in the model. There is therefore still variation between districts that is not explained by year, deprivation, medication or older population size.
+
+The negative binomial dispersion parameter is 7.33. This allows the variance of the response to be larger than its mean. This is more suitable than a Poisson model because the earlier Poisson models showed substantial overdispersion (as was reflected in the poor BIC fit).
+
+The large values of some coefficients, such as the intercept and deprivation coefficient, are mainly caused by using the calendar year directly. The intercept currently represents the expected value in year zero.
+
+```{r DA2}
+#| echo: false
+
+(mixed_nb_4)
+```
+
+A limitation of this model is that while most of the attributes are available on an annual level, notably deprivation index is not. An improvement would be to apply the deprivation index on the year that's appropriate, but the data informing this deprivation metric isn't sourced annually. Instead, it is sourced from the NZ census which is run every 5 years.
+
+Another limitation is that the data for distribution of medication is shared at the district level as opposed to the individual level. While a more granular view of the attributes would improve the accuracy of the model, and create stronger inferences, it becomes a violation of privacy if individuals medication status were available publicly on the individual level. Also to do with data availability, the model creates a relationship with the number of medication distributions with the regressors, as opposed to the medication taken by individuals wich may not be as relevant to interested parties.
 
 ## Conclusions and Recommendations
