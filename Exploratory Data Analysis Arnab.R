@@ -2,51 +2,43 @@ library(tidyverse)
 library(janitor)
 library(scales)
 
-
 chemical <- read.csv("Data_ByChemical.csv")
-chemform <- read.csv("Data_ByChemForm.csv")
 tg2 <- read.csv("Data_ByTG2.csv")
 tg3 <- read.csv("Data_ByTG3.csv")
 lookup <- read.csv("PharmaceuticalsLookup.csv")
 
-
-dementia_chemicals <- c("Donepezil hydrochloride", "Rivastigmine")
+dementia_chemicals <- c(
+  "Donepezil hydrochloride",
+  "Rivastigmine"
+)
 
 dim(chemical)
-dim(chemform)
 dim(tg2)
 dim(tg3)
 dim(lookup)
 
 names(chemical)
-names(chemform)
 names(tg2)
 names(tg3)
 names(lookup)
 
 head(chemical)
-
 str(chemical)
-
 summary(chemical)
 
-
-#Missing values
-
+# Missing values
 colSums(is.na(chemical))
 
-#Duplicate rows
-
+# Duplicate rows
 sum(duplicated(chemical))
 
-
+# These are row counts, not dispensing totals
 table(chemical$YearDisp)
-
 table(chemical$District)
-
 table(chemical$Type)
 
 n_distinct(chemical$Chemical)
+
 
 chemical <- chemical %>%
   mutate(
@@ -55,7 +47,6 @@ chemical <- chemical %>%
       "Suppressed count (<6)",
       "Reported exact count"
     ),
-    
     PeopleCountStatus = ifelse(
       NumPpl == "<6",
       "Suppressed count (<6)",
@@ -63,13 +54,11 @@ chemical <- chemical %>%
     )
   )
 
-
 table(chemical$DispensingCountStatus)
 table(chemical$PeopleCountStatus)
 
 suppression_summary <- chemical %>%
   summarise(
-    
     PercentDispensingRecordsSuppressed =
       mean(NumDisps == "<6") * 100,
     
@@ -82,7 +71,6 @@ suppression_summary
 suppression_plot_data <- chemical %>%
   count(DispensingCountStatus)
 
-
 ggplot(
   suppression_plot_data,
   aes(
@@ -94,8 +82,7 @@ ggplot(
   scale_y_continuous(labels = comma) +
   labs(
     title = "Suppression Status of Dispensing Records",
-    subtitle =
-      "Suppressed records contain dispensing counts below 6",
+    subtitle = "Suppressed records contain dispensing counts below 6",
     x = NULL,
     y = "Number of Records"
   ) +
@@ -104,7 +91,6 @@ ggplot(
 suppression_year <- chemical %>%
   group_by(YearDisp) %>%
   summarise(
-    
     Records = n(),
     
     SuppressedRecords =
@@ -116,9 +102,7 @@ suppression_year <- chemical %>%
     .groups = "drop"
   )
 
-
 suppression_year
-
 
 suppression_district <- chemical %>%
   filter(
@@ -126,7 +110,6 @@ suppression_district <- chemical %>%
   ) %>%
   group_by(District) %>%
   summarise(
-    
     Records = n(),
     
     SuppressedRecords =
@@ -141,10 +124,7 @@ suppression_district <- chemical %>%
     desc(SuppressionRate)
   )
 
-
 suppression_district
-
-
 
 ggplot(
   suppression_district,
@@ -165,10 +145,8 @@ ggplot(
   ) +
   theme_minimal()
 
-
 chemical_clean <- chemical %>%
   mutate(
-    
     NumDisps = ifelse(
       NumDisps == "<6",
       3,
@@ -181,12 +159,9 @@ chemical_clean <- chemical %>%
       as.numeric(NumPpl)
     )
   )
-
-
 
 tg2_clean <- tg2 %>%
   mutate(
-    
     NumDisps = ifelse(
       NumDisps == "<6",
       3,
@@ -200,10 +175,8 @@ tg2_clean <- tg2 %>%
     )
   )
 
-
 tg3_clean <- tg3 %>%
   mutate(
-    
     NumDisps = ifelse(
       NumDisps == "<6",
       3,
@@ -218,8 +191,53 @@ tg3_clean <- tg3 %>%
   )
 
 str(chemical_clean$NumDisps)
-
 str(chemical_clean$NumPpl)
+
+dementia_table <- chemical_clean %>%
+  filter(
+    District == "New Zealand",
+    Chemical %in% dementia_chemicals
+  ) %>%
+  group_by(
+    YearDisp,
+    Chemical
+  ) %>%
+  summarise(
+    Dispensings = sum(NumDisps),
+    People = sum(NumPpl),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = Chemical,
+    values_from = c(
+      Dispensings,
+      People
+    )
+  ) %>%
+  select(
+    YearDisp,
+    `Dispensings_Donepezil hydrochloride`,
+    `People_Donepezil hydrochloride`,
+    `Dispensings_Rivastigmine`,
+    `People_Rivastigmine`
+  ) %>%
+  rename(
+    Year = YearDisp,
+    
+    `Donepezil dispensings` =
+      `Dispensings_Donepezil hydrochloride`,
+    
+    `Donepezil people` =
+      `People_Donepezil hydrochloride`,
+    
+    `Rivastigmine dispensings` =
+      `Dispensings_Rivastigmine`,
+    
+    `Rivastigmine people` =
+      `People_Rivastigmine`
+  )
+
+dementia_table
 
 drug_rankings <- chemical_clean %>%
   filter(
@@ -227,7 +245,6 @@ drug_rankings <- chemical_clean %>%
   ) %>%
   group_by(Chemical) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
@@ -240,12 +257,10 @@ drug_rankings <- chemical_clean %>%
     Rank = row_number()
   )
 
-
 top_drugs <- drug_rankings %>%
   slice_head(
     n = 15
   )
-
 
 top_drugs
 
@@ -279,7 +294,6 @@ dementia_rankings <- drug_rankings %>%
 
 dementia_rankings
 
-
 ggplot(
   dementia_rankings,
   aes(
@@ -303,19 +317,18 @@ ggplot(
   ) +
   theme_minimal()
 
+
 year_summary <- chemical_clean %>%
   filter(
     District == "New Zealand"
   ) %>%
   group_by(YearDisp) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
     .groups = "drop"
   )
-
 
 year_summary
 
@@ -344,7 +357,6 @@ ggplot(
   ) +
   theme_minimal()
 
-
 district_summary <- chemical_clean %>%
   filter(
     District != "New Zealand",
@@ -352,7 +364,6 @@ district_summary <- chemical_clean %>%
   ) %>%
   group_by(District) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
@@ -361,7 +372,6 @@ district_summary <- chemical_clean %>%
   arrange(
     desc(TotalDisp)
   )
-
 
 district_summary
 
@@ -402,9 +412,7 @@ selected_names <- unique(
   )
 )
 
-
 selected_names
-
 
 drug_year <- chemical_clean %>%
   filter(
@@ -416,17 +424,13 @@ drug_year <- chemical_clean %>%
     YearDisp
   ) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
     .groups = "drop"
   )
 
-
 drug_year
-
-
 
 ggplot(
   drug_year,
@@ -475,7 +479,6 @@ drug_change <- drug_year %>%
     names_prefix = "Year_"
   ) %>%
   mutate(
-    
     PercentChange =
       (
         Year_2024 -
@@ -488,9 +491,7 @@ drug_change <- drug_year %>%
     desc(PercentChange)
   )
 
-
 drug_change
-
 
 people_year <- chemical_clean %>%
   filter(
@@ -498,17 +499,13 @@ people_year <- chemical_clean %>%
   ) %>%
   group_by(YearDisp) %>%
   summarise(
-    
     TotalPeople =
       sum(NumPpl),
     
     .groups = "drop"
   )
 
-
 people_year
-
-
 
 ggplot(
   people_year,
@@ -546,7 +543,6 @@ dispensing_people <- chemical_clean %>%
     YearDisp
   ) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
@@ -556,7 +552,6 @@ dispensing_people <- chemical_clean %>%
     .groups = "drop"
   ) %>%
   mutate(
-    
     DispensingPerPerson =
       TotalDisp /
       TotalPeople
@@ -585,7 +580,6 @@ ggplot(
   ) +
   theme_minimal()
 
-
 names(lookup)
 
 dementia_groups <- lookup %>%
@@ -599,7 +593,6 @@ dementia_groups <- lookup %>%
   ) %>%
   distinct()
 
-
 dementia_groups
 
 tg2_rankings <- tg2_clean %>%
@@ -608,7 +601,6 @@ tg2_rankings <- tg2_clean %>%
   ) %>%
   group_by(TherapeuticGrp2) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
@@ -625,7 +617,6 @@ top_tg2 <- tg2_rankings %>%
   slice_head(
     n = 15
   )
-
 
 top_tg2
 
@@ -668,7 +659,6 @@ tg3_rankings <- tg3_clean %>%
   ) %>%
   group_by(TherapeuticGrp3) %>%
   summarise(
-    
     TotalDisp =
       sum(NumDisps),
     
@@ -710,7 +700,6 @@ ggplot(
   ) +
   theme_minimal()
 
-
 dementia_tg3 <- dementia_groups %>%
   distinct(
     TherapeuticGrp3
@@ -720,7 +709,5 @@ dementia_tg3 <- dementia_groups %>%
     by = "TherapeuticGrp3"
   )
 
-
 dementia_tg3
-
 
