@@ -89,7 +89,10 @@ dementia_chemicals <- c(
 
 # Remove the totals
 Data_ByChemical_clean <- Data_ByChemical |>
-  filter(District != "New Zealand") |>
+  filter(
+    District != "New Zealand",
+    Type == "Dispensings"
+    ) |>
   # Rename the districts for merging purposes
   mutate(
     District = case_when(
@@ -358,7 +361,7 @@ Income, age, employment, education, racial profile (Probably not), family depend
 
 ## Exploratory Data Analysis
 
-The graph below shows an unequal distribution of dispensing of medications of the 15 most widely distributed chemicals. Paracetamol is by far the most dispensed, with over double the amount of distributions compared to the asprin, the chemical in 4th place. The second and third most widely distributed medications are Atovastain and Omeprazole. Overall, the distribution has a long tail. Donepezil hydrochloride and Rivastigmine aren't highly distributed enough to make the top 15, with the former ranking 199th across the 5 years of data, and the latter ranking 475th over the same period.
+The graph below shows an unequal distribution of dispensing of medications of the 15 most widely distributed chemicals. Paracetamol is by far the most dispensed, with over double the amount of distributions compared to the aspirin, the chemical in 4th place. The second and third most widely distributed medications are atorvastatin and omeprazole. Overall, the distribution has a long tail. Donepezil hydrochloride and Rivastigmine aren't highly distributed enough to make the top 15, with the former ranking 186th across the 5 years of data, and the latter ranking 469th over the same period.
 
 ```{r EDA1}
 #| echo: false
@@ -397,7 +400,7 @@ Data_ByChemical_count_ranked |>
   )
 ```
 
-Looking at the line chart below showing rank over time, it can be seen that there are no changes to the rank of the top 3 medicines across the five years. Moving down the rankings, more variability is displayed. Colecalciferol rose from 7th to 4th, metoprobl siccinate moved down from 5th to 7th and Ibuprofin from 9th to 6th. This relates to two things:
+Looking at the line chart below showing rank over time, it can be seen that there are no changes to the rank of the top 3 medicines across the five years except for a swap between the 2nd and 3rd most distributed medications in 2021 being atorvastatin and omeprazole. Moving down the rankings, more variability is displayed. colecalciferol rose from 8th to 4th, metoprolol succinate moved down from 5th to 6th and ibuprofen from 14th to 8th. This relates to two
 
 - The long tailed nature of the ranked distribution means that the steeper decreases in medication top of the ranks are rank unphased relative to any changes over time.
 
@@ -437,6 +440,8 @@ The table below shows the distribution count and ranks of the two dementia medic
 
 ```{r EDA3}
 #| echo: false
+#| message: false
+#| warning: false
 
 Data_ByChemical_clean |>
   group_by(YearDisp, Chemical) |>
@@ -454,10 +459,10 @@ Data_ByChemical_clean |>
   ) |>
   rename(
     Year = YearDisp,
-    `Donepezil hydrochloride distribution count` = `Donepezil hydrochloride_NumDisps`,
-    `Rivastigmine distribution count` = `Rivastigmine_NumDisps`,
-    `Donepezil hydrochloride distribution rank` = `Donepezil hydrochloride_Rank`,
-    `Rivastigmine distribution rank` = `Rivastigmine_Rank`
+    `DH count` = `Donepezil hydrochloride_NumDisps`,
+    `R count` = `Rivastigmine_NumDisps`,
+    `DH rank` = `Donepezil hydrochloride_Rank`,
+    `R rank` = `Rivastigmine_Rank`
   ) |>
   pander()
 ```
@@ -502,12 +507,14 @@ Chemical_concentration_region |>
   )
 ```
 
-The median value is 0.1695, meaning that a typical medication will have roughly 17% of their medication go towards the district that leads in distribution. The lowest observed proportion is `{r} Chemical_concentration_region |> pull(district_share) |> min()` meaning that no medication is equally distributed across all districts. There's a small group of medications that have a proportion value of 1, meaning that they are only distributed in a single district. Note that this metric doesn't speak to the number of distributions for these medications, and are likely very niche with an estimated mean of `{r} Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> mean() |> round(2)` and max of `{r} Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> max()` . The medications with these lower distributions are either very niche, available from retailers outside of pharmacies or not recorded in some districts.
+The median value is 0.1711, meaning that a typical medication will have roughly 17% of their medication go towards the district that leads in distribution. The lowest observed proportion is `r Chemical_concentration_region |> pull(district_share) |> min()` meaning that no medication is equally distributed across all districts. There's a small group of medications that have a proportion value of 1, meaning that they are only distributed in a single district. Note that this metric doesn't speak to the number of distributions for these medications, and are likely very niche with an estimated mean of `r Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> mean() |> round(2)` and max of `r Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> max()`. The medications with these lower distributions may be very niche, available from retailers outside of pharmacies or not recorded in some districts, but this is speculative.
 
-Dementia as a risk is strongly associated with old age. This makes the districts with a higher count of aged population more relevant to this analysis than total population size in the health district. The graphs below show a positive relationship between aged population count and distributions of the two key dementia medications. This relationship is stronger for Donepezil Hydrochloride, but both show that there are some observations above the line of best fit on the higher end of the district aged population. These observations belong to the ``` {r}``dementia_population |> group_by(Chemical) |> ``` `slice_max(order_by = NumDisps, n = 5) |>` `pull(District) |> unique()` district, and as the years increase it can be seen diverging further away from the line of best fit. Overall, this high correlation means that the older population size accounts for a large amount of the inter-district variation.
+Dementia as a risk is strongly associated with old age. This makes the districts with a higher count of aged population more relevant to this analysis than total population size in the health district. The graphs below show a positive relationship between aged population count and distributions of the two key dementia medications. This relationship is stronger for Donepezil Hydrochloride, but both show that there are some observations above the line of best fit on the higher end of the district aged population. These observations belong to the `r dementia_population |> group_by(Chemical) |> slice_max(order_by = NumDisps, n = 5) |> pull(District) |> unique()` district, and as the years increase it can be seen diverging further away from the line of best fit. Overall, this high correlation means that the older population size accounts for a large amount of the inter-district variation.
 
 ```{r EDA5}
 #| echo: false
+#| message: false
+#| warning: false
 
 # Population size against dispensing count
 dementia_population |>
@@ -537,7 +544,7 @@ dementia_population |>
     labels = label_comma()
   ) +
   labs(
-    title = "Dementia-medication dispensing and the population aged 65+",
+    title = "Dementia-medication dispensing and \nthe population aged 65+",
     x = "District population aged 65 and older",
     y = "Number of dispensings",
     shape = "Year",
@@ -559,6 +566,10 @@ dementia_population |>
       y = factor(
         District,
         levels = rev(district_order)
+      ),
+      colour = factor(
+        District,
+        levels = rev(district_order)
       )
     )
   ) +
@@ -570,13 +581,14 @@ dementia_population |>
     scales = "free_x"
   ) +
   labs(
-    title = "Dementia-medication dispensing rates by district in 2024",
+    title = "Dementia-medication dispensing rates \nby district in 2024",
     x = "Dispensings per 1,000 people aged 65+",
     y = NULL
-  )
+  ) +
+  theme(legend.position = "none")
 ```
 
-The first observation of note is that donepezil hydrochloride has a much higher rate than rivastigmine. Tairāwhiti has the highest overall rate when you take into account said larger rates for donepezil hydrochloride, as it is the district that has the highest rate for this medication. Canterbury and Hawke's Bay have the second and third highest rates respectively. Alternatively, Rivastigmine has the highest concentration of distribution in Canterbury, Taranaki and Southern. Taranaki doesn't stand out for being high or low with donepezil hydrochloride, and Tairāwhti has the lowest distribution rate for rivastigmine. This could be related to the high proportion of the population of Tairāwhti falling higher on the latest (2023) NZ deprivation scale as seen below.
+The first observation of note is that donepezil hydrochloride has a much higher rate than rivastigmine. Tairāwhiti has the highest overall rate when you take into account said larger rates for donepezil hydrochloride, as it is the district that has the highest rate for this medication. Canterbury and Hawke's Bay have the second and third highest rates respectively. Alternatively, Rivastigmine has the highest concentration of distribution in Canterbury, Taranaki and Southern. Taranaki doesn't stand out for being high or low with donepezil hydrochloride, and Tairāwhiti has the lowest distribution rate for rivastigmine. This could be related to the high proportion of the population of Tairāwhti falling higher on the latest (2023) NZ deprivation scale as seen below.
 
 ```{r EDA7}
 #| echo: false
@@ -630,7 +642,7 @@ deprivation_long |>
     name = "Population share"
   ) +
   labs(
-    title = "Distribution of socioeconomic deprivation by area",
+    title = "Distribution of socioeconomic \ndeprivation by area",
     x = "New Zealand Index of Socioeconomic Deprivation",
     y = NULL
   ) +
@@ -644,6 +656,8 @@ The plots below show how the average distribution rate per aged person changes f
 
 ```{r EDA8}
 #| echo: false
+#| message: false
+#| warning: false
 
 # Scatterplot showing dispensing rate by average deprivation for each year and
 # drug
@@ -680,6 +694,8 @@ A variety of parametric models are tested to find which most appropriately fit t
 
 ```{r DA1}
 #| echo: false
+#| message: false
+#| warning: false
 
 dementia_model_data <- dementia_data |>
   mutate(
@@ -909,6 +925,6 @@ The large values of some coefficients, such as the intercept and deprivation coe
 
 A limitation of this model is that while most of the attributes are available on an annual level, notably deprivation index is not. An improvement would be to apply the deprivation index on the year that's appropriate, but the data informing this deprivation metric isn't sourced annually. Instead, it is sourced from the NZ census which is run every 5 years.
 
-Another limitation is that the data for distribution of medication is shared at the district level as opposed to the individual level. While a more granular view of the attributes would improve the accuracy of the model, and create stronger inferences, it becomes a violation of privacy if individuals medication status were available publicly on the individual level. Also to do with data availability, the model creates a relationship with the number of medication distributions with the regressors, as opposed to the medication taken by individuals wich may not be as relevant to interested parties.
+Another limitation is that the data for distribution of medication is shared at the district level as opposed to the individual level. While a more granular view of the attributes would improve the accuracy of the model, and create stronger inferences, it becomes a violation of privacy if individuals medication status were available publicly on the individual level. Also to do with data availability, the model creates a relationship with the number of medication distributions with the regressors, as opposed to the medication taken by individuals which may not be as relevant to interested parties.
 
 ## Conclusions and Recommendations

@@ -309,30 +309,58 @@ Deprivation_average <- Deprivation_wide |>
 # Dementia medication
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+# Create district/year population totals for people aged 65+
+Population_65_plus <- Retired_population |>
+  filter(
+    sex == "Total people, sex",
+    age %in% c(
+      "65-69 years",
+      "70-74 years",
+      "75-79 years",
+      "80-84 years",
+      "85-89 years",
+      "90 years and over"
+    )
+  ) |>
+  mutate(
+    # Make geographic names match the pharmaceutical data
+    District = case_when(
+      area == "Tairawhiti" ~ "Tairāwhiti",
+      area == "Waitemata" ~ "Waitematā",
+      area %in% c("Capital & Coast", "Hutt Valley") ~
+        "Capital, Coast and Hutt Valley",
+      area == "Area outside health district" ~
+        "Area outside health region",
+      .default = area
+    )
+  ) |>
+  group_by(
+    YearDisp = year_at_30_june,
+    District
+  ) |>
+  summarise(
+    population_65_plus = sum(obs_value)
+  ) |>
+  ungroup()
+
 dementia_data <- Data_ByChemical_clean |>
   filter(
     Chemical %in% dementia_chemicals,
     District != "Unknown"
   ) |>
-  mutate(
-    NumDisps = case_when(
-      NumDisps == "<6" ~ 3,
-      TRUE ~ as.numeric(NumDisps)
-    ),
-    NumPpl = case_when(
-      NumPpl == "<6" ~ 3,
-      TRUE ~ as.numeric(NumPpl)
-    )
-  ) |>
   group_by(YearDisp, District, Chemical) |>
   summarise(
     NumDisps = sum(NumDisps),
-    NumPpl = sum(NumPpl),
-    .groups = "drop"
+    NumPpl = sum(NumPpl)
   ) |>
+  ungroup() |>
   left_join(
     Deprivation_average,
     by = "District"
+  ) |>
+  left_join(
+    Population_65_plus,
+    by = c("YearDisp", "District")
   )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -389,13 +417,6 @@ population_65_plus <- Retired_population_clean |>
 
 # Combine population and dispensing data
 dementia_population <- dementia_data |>
-  left_join(
-    population_65_plus,
-    by = c(
-      "YearDisp",
-      "District"
-    )
-  ) |>
   mutate(
     dispensings_per_1000_65plus =
       NumDisps / population_65_plus * 1000,
@@ -445,13 +466,13 @@ dispensing_table <- xtabs(
 
 dementia_model_data <- dementia_data |>
   mutate(
-    # Keep year categorical because the trend may not be linear
-    Year = factor(YearDisp),
+    Year = YearDisp,
     # Centre deprivation so model intercepts are easier to interpret
     deprivation_c =
       average_deprivation - mean(average_deprivation),
     Chemical = factor(Chemical),
-    District = factor(District)
+    District = factor(District),
+    log_population_65_plus = log(population_65_plus)
   )
 
 # Model 0: differences between chemicals only
@@ -588,6 +609,19 @@ mixed_nb_3 <- dementia_model_data |>
     data = _
   )
 
+# Include aged population as an  offset
+mixed_nb_4 <- dementia_model_data |>
+  glmmTMB(
+    NumDisps ~
+      Year * deprivation_c +
+      Year * Chemical +
+      deprivation_c * Chemical +
+      offset(log_population_65_plus) +
+      (1 | District),
+    family = nbinom2(link = "log"),
+    data = _
+  )
+
 BIC(
   poisson_0,
   poisson_1,
@@ -601,13 +635,15 @@ BIC(
   mixed_poisson,
   mixed_nb_1,
   mixed_nb_2,
-  mixed_nb_3
+  mixed_nb_3,
+  mixed_nb_4
 ) |>
   as.data.frame() |>
   rownames_to_column("model") |>
   as_tibble() |>
   arrange(BIC)
 
+(mixed_nb_4)
 # The mixed negative binomial models have the lowest BIC, but many of the
 # coefficients are not significantly different from 0.
 
