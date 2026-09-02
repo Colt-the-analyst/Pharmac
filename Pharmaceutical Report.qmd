@@ -1,7 +1,9 @@
 ---
 title: "Pharmaceutical Report"
 author: "Group 22"
-format: typst
+format: 
+  pdf:
+    toc: true
 editor: visual
 ---
 
@@ -322,9 +324,7 @@ dementia_population <- dementia_data |>
 
 ## Executive Summary
 
-This project investigated how time and district-level socioeconomic deprivation were associated with the dispensing of two medications used in the treatment of dementia, donepezil hydrochloride and rivastigmine, across New Zealand health districts from 2020 to 2024. Pharmaceutical dispensing data were combined with the New Zealand Index of Socioeconomic Deprivation and annual estimates of the population aged 65 years and over. The pharmaceutical data were restricted to dispensing records, geographic names were harmonised across datasets, and population-adjusted dispensing rates were calculated to account for differences in the size of the older population between districts.
-Exploratory analysis showed that national dispensing counts for both medications increased over the study period, although substantial differences were observed between districts and between the two medications. Older population size explained a considerable amount of the variation in raw dispensing counts, supporting the use of population-adjusted rates. The relationship between socioeconomic deprivation and dispensing also appeared to differ by medication and over time.
-A series of Poisson, negative binomial and mixed-effects models were compared. The preferred model was a negative binomial mixed-effects model that included year, average district deprivation, medication type and their interactions, adjusted for the population aged 65 years and over, with a random intercept for district. At the average level of deprivation, the model estimated that the dispensing rate of donepezil hydrochloride increased by approximately 3.0% per year, while the dispensing rate of rivastigmine decreased by approximately 3.3% per year. The association with deprivation also differed between the medications and changed over time, indicating that the effects of time and socioeconomic deprivation cannot be considered independently of medication type.
+This project investigated how time and district-level socioeconomic deprivation were associated with the dispensing of two medications used in the treatment of dementia, donepezil hydrochloride and rivastigmine, across New Zealand health districts from 2020 to 2024. Pharmaceutical dispensing data were combined with the New Zealand Index of Socioeconomic Deprivation and annual estimates of the population aged 65 years and over. The pharmaceutical data were restricted to dispensing records, geographic names were harmonised across datasets, and population-adjusted dispensing rates were calculated to account for differences in the size of the older population between districts. Exploratory analysis showed that national dispensing counts for both medications increased over the study period, although substantial differences were observed between districts and between the two medications. Older population size explained a considerable amount of the variation in raw dispensing counts, supporting the use of population-adjusted rates. The relationship between socioeconomic deprivation and dispensing also appeared to differ by medication and over time. A series of Poisson, negative binomial and mixed-effects models were compared. The preferred model was a negative binomial mixed-effects model that included year, average district deprivation, medication type and their interactions, adjusted for the population aged 65 years and over, with a random intercept for district. At the average level of deprivation, the model estimated that the dispensing rate of donepezil hydrochloride increased by approximately 3.0% per year, while the dispensing rate of rivastigmine decreased by approximately 3.3% per year. The association with deprivation also differed between the medications and changed over time, indicating that the effects of time and socioeconomic deprivation cannot be considered independently of medication type.
 
 These findings describe associations rather than causal relationships. The analysis is limited by the use of district-level rather than individual-level data, the relatively small number of health districts, the repeated observation of the same districts, and the lack of annually updated deprivation measurements. In addition, pharmaceutical dispensing records indicate that a medication was dispensed, but do not confirm that it was taken by the patient. The results therefore provide evidence of geographic, temporal and socioeconomic variation in dementia-medication dispensing while highlighting the need for caution when interpreting the causes of these differences.
 
@@ -349,10 +349,10 @@ The pharmaceutical data were provided in several CSV files, including Data_ByChe
 The socioeconomic deprivation data provide information on deprivation across geographic areas. For the analysis, these data were used to calculate a population-weighted deprivation measure for each health district, providing district-level socioeconomic context. The population data contain population estimates by geographic area, year and age group. For the dementia analysis, these were aggregated to obtain estimates of the population aged 65 years and over for each district and year. This allowed dementia-related dispensing patterns to be considered relative to the size of the older population rather than comparing districts using raw dispensing counts alone.
 
 | Variable | R data type | Description |
-|----|----|----|
+|------------------------|------------------------|------------------------|
 | Chemical | Character | Name of the pharmaceutical chemical |
-| ChemID | Character | Identifier associated with the pharmaceutical
-chemical |
+| ChemID | Character | Identifier associated with the pharmaceutical |
+| chemical |  |  |
 | District | Character | Health district or New Zealand national aggregate |
 | YearDisp | Numerical | Year in which the dispensing was recorded |
 | NumDisps | Numerical after cleaning | Number of pharmaceutical dispensings |
@@ -362,7 +362,7 @@ Figure 1. Main variables in the chemical-level pharmaceutical dataset
 
 Although variables such as Chemical, District and Type are stored as character variables in R, they can be treated statistically as categorical variables. NumDisps and NumPpl were initially stored as character variables because some observations contain the value \<6. After treatment of these suppressed observations, they were converted to numerical variables.
 
-### Data quality and preparation
+## Data quality and preparation
 
 Before the main analysis, the pharmaceutical data were checked for missing values, duplicate records and variable structure. Records were then filtered to include Type = "Dispensings", excluding initial dispensing records before suppression was assessed. After this filtering, 4127 records had suppressed NumDisps values and 10147 records had suppressed NumPpl values.
 
