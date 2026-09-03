@@ -328,8 +328,6 @@ This project investigated how time and district-level socioeconomic deprivation 
 
 These findings describe associations rather than causal relationships. The analysis is limited by the use of district-level rather than individual-level data, the relatively small number of health districts, the repeated observation of the same districts, and the lack of annually updated deprivation measurements. In addition, pharmaceutical dispensing records indicate that a medication was dispensed, but do not confirm that it was taken by the patient. The results therefore provide evidence of geographic, temporal and socioeconomic variation in dementia-medication dispensing while highlighting the need for caution when interpreting the causes of these differences.
 
-## Table of Contents
-
 ## Background
 
 Medicines are an important part of healthcare, and examining pharmaceutical dispensing data can help us understand how medicine use varies across New Zealand, between geographic areas and over time. Dispensing patterns may be influenced by differences in population size, age structure, socioeconomic conditions and healthcare needs. This project uses pharmaceutical dispensing data to explore these patterns, with a particular focus on medicines associated with dementia.
@@ -342,7 +340,9 @@ The pharmaceutical data were obtained from Te Whatu Ora – Health New Zealand a
 
 ## Data
 
-Three main sources of data were used: pharmaceutical dispensing data, socioeconomic deprivation data, and population data. The pharmaceutical dispensing data were obtained from Health New Zealand \| Te Whatu Ora's Pharmaceutical Data Web Tool. The socioeconomic deprivation data and population estimates were obtained from \[<https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=3&tm=Population%20estimates%20health%20district&hc%5BArea%5D=&df%5Bds%5D=ds-nsiws-disseminate&df%5Bid%5D=POPES_SUB_002&df%5Bag%5D=STATSNZ&df%5Bvs%5D=1.0&dq=2020%2B2021%2B2022%2B2023%2B2024%2B2025.3.4%2B14%2B15%2B16%2B17%2B18%2B19.100%2B101%2B102%2B103%2B200%2B201%2B202%2B203%2B204%2B300%2B301%2B302%2B303%2B304%2B400%2B401%2B402%2B403%2B404%2B900&to%5BTIME%5D=false&isAvailabilityDisabled=false> \]. These datasets have different levels of granularity and were integrated where required for the dementia analysis.
+Three main sources of data were used: pharmaceutical dispensing data, socioeconomic deprivation data, and population data. The pharmaceutical dispensing data were obtained from Health New Zealand \| Te Whatu Ora's Pharmaceutical Data Web Tool. The socioeconomic deprivation data and population estimates were obtained from \[[https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=19&tm=deprivation%20index&hc\[New%20Zealand%20index%20of%20socioeconomic%20deprivation\]=&df\[ds\]=ds-nsiws-disseminate&df\[id\]=CEN23_DEP_019&df\[ag\]=STATSNZ&df\[vs\]=1.0&dq=2023.99999..9999.99.99&to\[TIME\]=false](https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=19&tm=deprivation%20index&hc[New%20Zealand%20index%20of%20socioeconomic%20deprivation]=&df[ds]=ds-nsiws-disseminate&df[id]=CEN23_DEP_019&df[ag]=STATSNZ&df[vs]=1.0&dq=2023.99999..9999.99.99&to[TIME]=false)\]
+
+\[<https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=3&tm=Population%20estimates%20health%20district&hc%5BArea%5D=&df%5Bds%5D=ds-nsiws-disseminate&df%5Bid%5D=POPES_SUB_002&df%5Bag%5D=STATSNZ&df%5Bvs%5D=1.0&dq=2020%2B2021%2B2022%2B2023%2B2024%2B2025.3.4%2B14%2B15%2B16%2B17%2B18%2B19.100%2B101%2B102%2B103%2B200%2B201%2B202%2B203%2B204%2B300%2B301%2B302%2B303%2B304%2B400%2B401%2B402%2B403%2B404%2B900&to%5BTIME%5D=false&isAvailabilityDisabled=false>\]. These datasets have different levels of granularity and were integrated where required for the dementia analysis.
 
 The pharmaceutical data were provided in several CSV files, including Data_ByChemical.csv, Data_ByTG2.csv, Datya_ByTG3.csv and PharmaceuticalsLookup.csv. The chemical-level dataset was the main dataset used for analysing individual medicines. Each row represents an aggregated combination of characteristics such as pharmaceutical chemical, health district, year and dispensing type, rather than an individual patient. The TG2 and TG3 datasets contain more aggregated therapeutic-group and subgroup information, while the lookup table connects individual pharmaceutical chemicals to their corresponding therapeutic classifications.
 
@@ -358,7 +358,7 @@ The socioeconomic deprivation data provide information on deprivation across geo
 | NumDisps | Numerical after cleaning | Number of pharmaceutical dispensings |
 | NumPpl | Numerical after cleaning | Number of people associated with the dispensing record |
 
-Figure 1. Main variables in the chemical-level pharmaceutical dataset
+*Figure 1. Main variables in the chemical-level pharmaceutical dataset.*
 
 Although variables such as Chemical, District and Type are stored as character variables in R, they can be treated statistically as categorical variables. NumDisps and NumPpl were initially stored as character variables because some observations contain the value \<6. After treatment of these suppressed observations, they were converted to numerical variables.
 
@@ -427,6 +427,8 @@ Data_ByChemical_count_ranked |>
   )
 ```
 
+*Figure 2. Bar chart representing the count of dispensing of the most widely dispensed drugs in comparison with the dementia medication.*
+
 Looking at the line charts below shows the dispensing count for the two primary dementia medications annually from 2020 to 2024. Both show an upward trend of distributions over time.
 
 ```{r EDA2}
@@ -464,6 +466,8 @@ Data_ByChemical_clean |>
   theme_minimal()
 ```
 
+*Figure 3. The change in dispensing of the dementia medication over time.*
+
 The table below shows the same information in table format, broken down by count and ranks of the two dementia medications of interest. There has been an upwards trend in dispensing for both of these medications, while rivastigmine has had its rank reduced in recent years. This is because while the dispensing of this medication has increased in these years, not as much as other medication that had a lower dispensing count that rivastigmine in 2021.
 
 ```{r EDA3}
@@ -494,6 +498,8 @@ Data_ByChemical_clean |>
   ) |>
   pander()
 ```
+
+*Figure 4. Count table of distribution of dementia medication, along with the distribution rank relative to other medications.*
 
 It is useful to know how frequently medications are distributed in a high concentration to a few health districts relative to an even spread across all health districts. One way to measure this is by using the proportion of dispensings going toward the health district where most of the dispensings occur. There are 19 health districts, and if the dispensings occurred equally across said districts, this metric would take the value of 1/19. In the opposite extreme, if the medication was distributed in only 1 district, the metric would take the value of 1. Below is a histogram showing how each of the medications fall on this proportion scale.
 
@@ -534,6 +540,8 @@ Chemical_concentration_region |>
     y = "Number of chemicals"
   )
 ```
+
+*Figure 5. Histogram showing the disrtibution of the proportion of dispensings to the district with the highest concentration of dispensings.*
 
 The median value is 0.1711, meaning that a typical medication will have roughly 17% of their medication go towards the district that leads in dispensing. The lowest observed proportion is `r Chemical_concentration_region |> pull(district_share) |> min()` meaning that no medication is equally distributed across all districts. There's a small group of medications that have a proportion value of 1, meaning that they are only distributed in a single district. Note that this metric doesn't speak to the number of dispensings for these medications, and are likely very niche with an estimated mean of `r Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> mean() |> round(2)` and max of `r Chemical_concentration_region |> filter(district_share == 1) |> pull(NumDisps) |> max()`. The medications with these lower dispensings may be very niche, available from retailers outside of pharmacies or not recorded in some districts, but this is speculative.
 
@@ -580,6 +588,8 @@ dementia_population |>
   )
 ```
 
+*Figure 6. An annual breakdown of how dispensing counts vary by count of population aged 65+ from 2020 to 2024.*
+
 Crude rates were calculated as annual dispensings per 1,000 people aged 65 years and over for the 2024 year. The table below shows the variation in these dispensing rates across the different districts.
 
 ```{r EDA6}
@@ -615,6 +625,8 @@ dementia_population |>
   ) +
   theme(legend.position = "none")
 ```
+
+*Figure 7. Bar chart displaying the dispensing rate per count of population aged 65+ broken down by district.*
 
 The first observation of note is that donepezil hydrochloride has a much higher rate than rivastigmine. Tairāwhiti has the highest overall rate when you take into account said larger rates for donepezil hydrochloride, as it is the district that has the highest rate for this medication. Canterbury and Hawke's Bay have the second and third highest rates respectively. Alternatively, Rivastigmine has the highest concentration of dispensing in Canterbury, Taranaki and Southern. Taranaki doesn't stand out for being high or low with donepezil hydrochloride, and Tairāwhiti has the lowest dispensing rate for rivastigmine. This could be related to the high proportion of the population of Tairāwhti falling higher on the latest (2023) NZ deprivation scale as seen below.
 
@@ -681,6 +693,8 @@ deprivation_long |>
   )
 ```
 
+*Figure 8. Heatmap showing the count of the district population falling into each deprivation index.*
+
 The plots below show how the average dispensing rate per aged person changes for the two dementia medications over the deprivation index. For donepezil hydrochloride, the trend in the relationship between the dispensing rate and the deprivation index increases as time increases, peaking at 2022, followed by a decreasing trend in subsequent years. Alternatively, these trends have consistently steeper downward trends as the years increase. This is a strong argument to test interaction effects between year and deprivation index when predicting the number of medication dispensings.
 
 ```{r EDA8}
@@ -708,6 +722,10 @@ dementia_population |>
     Chemical ~ YearDisp,
     scales = "free_y"
   ) +
+  scale_x_continuous(
+    breaks = c(5, 6, 7),
+    limits = c(4.4, 7.6)
+  ) + 
   labs(
     title = "Deprivation and dementia medication dispensing rates",
     x = "Average deprivation",
@@ -715,4 +733,24 @@ dementia_population |>
   )
 ```
 
+*Figure 9. Scatterplot displaying the districts annual dispensing rate per population aged 65+ over average deprivation for dementia medication.*
+
 These results remain exploratory. There are only about 19 districts per year, the same districts are observed repeatedly, and district deprivation changes little over the study period. Confidence intervals are wide, especially for rivastigmine, and the slopes may be sensitive to influential districts such as Tairāwhiti, Canterbury or Taranaki.
+
+## Individual Contributions
+
+**Executive Summary:**
+
+Written by Amine.
+
+**Background and Data:**
+
+Written by Arnab.
+
+**Ethic, Privacy and Security:**
+
+Colton, Amine and Arnab all contributed 4 points, which were summarised by Amine.
+
+**EDA:**
+
+Colton, Amine and Arnab all did individual contributions toward the plots and commentary. Collated by Colton.
