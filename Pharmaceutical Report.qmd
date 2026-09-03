@@ -1,9 +1,18 @@
 ---
-title: "Pharmaceutical Report"
-author: "Group 22"
-format: 
+title: "Patterns in Dementia Medication Dispensing across New Zealand"
+subtitle: "Group 22"
+
+author:
+  - "Colton Brewer — 300683951"
+  - "Wasuil Arnab — 300699022"
+  - "Mohamed Amine Benaziza — 300684553"
+
+date: "03/09/2026"
+
+format:
   pdf:
     toc: true
+
 editor: visual
 ---
 
@@ -344,7 +353,7 @@ The pharmaceutical data were obtained from Te Whatu Ora – Health New Zealand a
 
 ## Data
 
-Three main sources of data were used: pharmaceutical dispensing data, socioeconomic deprivation data, and population data. The pharmaceutical dispensing data were obtained from Health New Zealand \| Te Whatu Ora's Pharmaceutical Data Web Tool. The socioeconomic deprivation data and population estimates were obtained from \[[https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=19&tm=deprivation%20index&hc\[New%20Zealand%20index%20of%20socioeconomic%20deprivation\]=&df\[ds\]=ds-nsiws-disseminate&df\[id\]=CEN23_DEP_019&df\[ag\]=STATSNZ&df\[vs\]=1.0&dq=2023.99999..9999.99.99&to\[TIME\]=false](https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=19&tm=deprivation%20index&hc[New%20Zealand%20index%20of%20socioeconomic%20deprivation]=&df[ds]=ds-nsiws-disseminate&df[id]=CEN23_DEP_019&df[ag]=STATSNZ&df[vs]=1.0&dq=2023.99999..9999.99.99&to[TIME]=false)\] 'Socioeconomic deprivation data'
+Three main sources of data were used: pharmaceutical dispensing data, socioeconomic deprivation data, and population data. The pharmaceutical dispensing data were obtained from Health New Zealand \| Te Whatu Ora's Pharmaceutical Data Web Tool. The socioeconomic deprivation data and population estimates were obtained from \[<https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=19&tm=deprivation%20index&hc%5BNew%20Zealand%20index%20of%20socioeconomic%20deprivation%5D=&df%5Bds%5D=ds-nsiws-disseminate&df%5Bid%5D=CEN23_DEP_019&df%5Bag%5D=STATSNZ&df%5Bvs%5D=1.0&dq=2023.99999..9999.99.99&to%5BTIME%5D=false>\] 'Socioeconomic deprivation data'
 
 \[<https://explore.data.stats.govt.nz/vis?pg=0&bp=true&snb=3&tm=Population%20estimates%20health%20district&hc%5BArea%5D=&df%5Bds%5D=ds-nsiws-disseminate&df%5Bid%5D=POPES_SUB_002&df%5Bag%5D=STATSNZ&df%5Bvs%5D=1.0&dq=2020%2B2021%2B2022%2B2023%2B2024%2B2025.3.4%2B14%2B15%2B16%2B17%2B18%2B19.100%2B101%2B102%2B103%2B200%2B201%2B202%2B203%2B204%2B300%2B301%2B302%2B303%2B304%2B400%2B401%2B402%2B403%2B404%2B900&to%5BTIME%5D=false&isAvailabilityDisabled=false>\]'Population Estimates Data'. These datasets have different levels of granularity and were integrated where required for the dementia analysis.
 
@@ -392,7 +401,7 @@ Privacy considerations
 
 The pharmaceutical dataset used in the project is aggregated at health-district level rather than individual-patient level. Individual-level medication records, names, NHI numbers and other direct patient identifiers were therefore neither required nor used in the analysis.
 
-Small counts in the pharmaceutical dataset are represented as "<6" to reduce the risk of identifying patients in groups with very few observations. These suppressed observations were identified during data preparation. Where numerical values were required for analysis, suppressed counts were approximated as 3, the midpoint of the possible range from 1 to 5. This allows suppressed observations to remain in the analysis without claiming that their true confidential values are known.
+Small counts in the pharmaceutical dataset are represented as "\<6" to reduce the risk of identifying patients in groups with very few observations. These suppressed observations were identified during data preparation. Where numerical values were required for analysis, suppressed counts were approximated as 3, the midpoint of the possible range from 1 to 5. This allows suppressed observations to remain in the analysis without claiming that their true confidential values are known.
 
 This approximation introduces uncertainty, particularly for medications or districts with relatively small dispensing counts. Results affected by these observations should therefore be interpreted cautiously, and the imputed value of 3 should not be presented as the actual underlying count.
 
